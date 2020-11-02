@@ -1,3 +1,5 @@
+package io.lenses.connect.mock
+
 import com.fasterxml.jackson.databind.SerializationFeature
 import io.ktor.application.*
 import io.ktor.features.*
@@ -29,9 +31,11 @@ enum class ConnectStatus {
 fun main() {
     val clusterId: String = UUID.randomUUID().toString()
 
-    embeddedServer(Netty, port = 8080, host = "127.0.0.1") {
+    embeddedServer(Netty, port = 8083, host = "127.0.0.1") {
 
         configureJsonSerialization()
+        install(CallLogging)
+        install(DefaultHeaders)
 
         routing {
             get("/") {

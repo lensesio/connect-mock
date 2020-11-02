@@ -3,7 +3,14 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     kotlin("jvm") version "1.4.10"
     kotlin("kapt") version "1.4.10"
+
+    id("java")
+    id("com.github.johnrengelman.shadow") version "5.0.0"
+
     application
+}
+application {
+    mainClassName = "io.lenses.connect.mock.ServerKt"
 }
 
 group = "io.lenses"
@@ -36,9 +43,13 @@ dependencies {
     implementation ("io.arrow-kt:arrow-syntax")
     kapt ("io.arrow-kt:arrow-meta:$arrowVersion")
 }
+
 tasks.withType<KotlinCompile>() {
     kotlinOptions.jvmTarget = "1.8"
 }
-application {
-    mainClassName = "ServerKt"
+
+tasks.withType<Jar> {
+    manifest {
+        attributes(mapOf("Main-Class" to application.mainClassName))
+    }
 }
