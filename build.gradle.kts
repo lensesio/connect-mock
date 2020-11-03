@@ -10,10 +10,10 @@ plugins {
     application
 }
 application {
-    mainClassName = "io.lenses.connect.mock.ServerKt"
+    mainClassName = "io.fperezp.connect.mock.ServerKt"
 }
 
-group = "io.lenses"
+group = "io.fperezp"
 version = "1.0-SNAPSHOT"
 
 val arrowVersion = "0.11.0"

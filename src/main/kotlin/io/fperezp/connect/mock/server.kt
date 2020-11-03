@@ -1,4 +1,4 @@
-package io.lenses.connect.mock
+package io.fperezp.connect.mock
 
 import com.fasterxml.jackson.databind.SerializationFeature
 import io.ktor.application.*
