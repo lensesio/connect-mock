@@ -37,6 +37,7 @@ securityContext: {}
   # runAsUser: 1000
 
 service:
+  name: connect-mock
   type: ClusterIP
   externalPort: 8083
   internalPort: 8083
