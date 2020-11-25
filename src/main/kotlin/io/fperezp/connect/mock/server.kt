@@ -2,6 +2,8 @@ package io.fperezp.connect.mock
 
 import arrow.fx.coroutines.Atomic
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.sksamuel.hoplite.ConfigLoader
+import com.sksamuel.hoplite.PropertySource
 import io.ktor.application.*
 import io.ktor.features.*
 import io.ktor.http.*
@@ -31,89 +33,119 @@ enum class ConnectStatus {
     RUNNING, PAUSED, FAILED, UNASSIGNED
 }
 
+data class Config(val workerAPort: Int, val workerBPort: Int, val workerCPort: Int)
+
 fun main() {
+//    val config = Config(8183, 8283, 8383)
+
+    val config = ConfigLoader.Builder()
+        .addSource(PropertySource.resource("/application.conf"))
+        .build()
+        .loadConfig<Config>().getUnsafe()
+
+    val env = applicationEngineEnvironment {
+        module {
+            main()
+        }
+        // WorkerA
+        connector {
+            host = "0.0.0.0"
+            port = config.workerAPort
+        }
+        // WorkerB
+        connector {
+            host = "0.0.0.0"
+            port = config.workerBPort
+        }
+        // WorkerC
+        connector {
+            host = "0.0.0.0"
+            port = config.workerCPort
+        }
+    }
+    embeddedServer(Netty, env).start(true)
+}
+
+fun Application.main() {
 
     val clusterId: String = UUID.randomUUID().toString()
     val connectors = Atomic.unsafe(emptyMap<String, Map<String, String>>())
 
-    embeddedServer(Netty, port = 8083, host = "127.0.0.1") {
+    configureJsonSerialization()
+    install(CallLogging)
+    install(DefaultHeaders)
 
-        configureJsonSerialization()
-        install(CallLogging)
-        install(DefaultHeaders)
-
-        routing {
-            get("/") {
-                call.respond(
-                    HttpStatusCode.OK,
-                    Info("CP-2.5-mocked", "mocked-commit-id", clusterId)
-                )
-            }
-
-            get("/connector-plugins") {
-                call.respond(
-                    HttpStatusCode.OK,
-                    listOf(
-                        Plugin("io.lenses.runner.connect.ProcessorConnector", "sink", "mock"),
-                        Plugin("com.landoop.connect.SQL", "sink", "mock")
-                    )
-                )
-            }
-
-            post("/connectors") {
-                val request = call.receive<ConnectorCreateRequest>()
-                connectors.update { (it + (request.name to request.config)) }
-                val tasksMax: Int = request.config["tasks.max"]?.toInt() ?: 0
-
-                call.respond(
-                    HttpStatusCode.OK,
-                    ConnectorResponse(request.name, request.config, buildTasksList(tasksMax))
-                )
-            }
-
-            put("/connectors") {
-                val request = call.receive<ConnectorCreateRequest>()
-                connectors.update { (it + (request.name to request.config)) }
-                val tasksMax: Int = request.config["tasks.max"]?.toInt() ?: 0
-
-                call.respond(
-                    HttpStatusCode.OK,
-                    ConnectorResponse(request.name, request.config, buildTasksList(tasksMax))
-                )
-
-                call.respond(request)
-            }
-
-            get("/connectors") {
-                call.respond(
-                    HttpStatusCode.OK,
-                    connectors.get().keys
-                )
-            }
-
-            get("/connectors/{connectorName}/") {
-                val connectorName = call.parameters.getOrFail("connectorName")
-                val tasksMax: Int = connectors.get()[connectorName]?.get("tasks.max")?.toInt() ?: 0
-                val config: Map<String, String> = connectors.get()[connectorName] ?: emptyMap()
-
-                call.respond(HttpStatusCode.OK, ConnectorResponse(connectorName, config, buildTasksList(tasksMax)))
-            }
-
-            get("/connectors/{connectorName}/status") {
-                val connectorName = call.parameters.getOrFail("connectorName")
-                val tasksMax: Int = connectors.get()[connectorName]?.get("tasks.max")?.toInt() ?: 0
-                call.respond(HttpStatusCode.OK, ConnectorStatusResponse(connectorName, buildTasksList(tasksMax)))
-            }
-
-
-            get("/connectors/{connectorName}/config") {
-                val connectorName = call.parameters.getOrFail("connectorName")
-                val connectorConfig: Map<String, String> = connectors.get()[connectorName] ?: emptyMap()
-
-                call.respond(HttpStatusCode.OK, connectorConfig)
-            }
+    routing {
+        get("/") {
+            call.respond(
+                HttpStatusCode.OK,
+                Info("CP-2.5-mocked", "mocked-commit-id", clusterId)
+            )
         }
-    }.start(wait = true)
+
+        get("/connector-plugins") {
+            call.respond(
+                HttpStatusCode.OK,
+                listOf(
+                    Plugin("io.lenses.runner.connect.ProcessorConnector", "sink", "mock"),
+                    Plugin("com.landoop.connect.SQL", "sink", "mock")
+                )
+            )
+        }
+
+        post("/connectors") {
+            val request = call.receive<ConnectorCreateRequest>()
+            connectors.update { (it + (request.name to request.config)) }
+            val tasksMax: Int = request.config["tasks.max"]?.toInt() ?: 0
+
+            call.respond(
+                HttpStatusCode.OK,
+                ConnectorResponse(request.name, request.config, buildTasksList(tasksMax))
+            )
+        }
+
+        put("/connectors") {
+            val request = call.receive<ConnectorCreateRequest>()
+            connectors.update { (it + (request.name to request.config)) }
+            val tasksMax: Int = request.config["tasks.max"]?.toInt() ?: 0
+
+            call.respond(
+                HttpStatusCode.OK,
+                ConnectorResponse(request.name, request.config, buildTasksList(tasksMax))
+            )
+
+            call.respond(request)
+        }
+
+        get("/connectors") {
+            call.respond(
+                HttpStatusCode.OK,
+                connectors.get().keys
+            )
+        }
+
+        get("/connectors/{connectorName}/") {
+            val connectorName = call.parameters.getOrFail("connectorName")
+            val tasksMax: Int = connectors.get()[connectorName]?.get("tasks.max")?.toInt() ?: 0
+            val config: Map<String, String> = connectors.get()[connectorName] ?: emptyMap()
+
+            call.respond(HttpStatusCode.OK, ConnectorResponse(connectorName, config, buildTasksList(tasksMax)))
+        }
+
+        get("/connectors/{connectorName}/status") {
+            val connectorName = call.parameters.getOrFail("connectorName")
+            val tasksMax: Int = connectors.get()[connectorName]?.get("tasks.max")?.toInt() ?: 0
+            call.respond(HttpStatusCode.OK, ConnectorStatusResponse(connectorName, buildTasksList(tasksMax)))
+        }
+
+
+        get("/connectors/{connectorName}/config") {
+            val connectorName = call.parameters.getOrFail("connectorName")
+            val connectorConfig: Map<String, String> = connectors.get()[connectorName] ?: emptyMap()
+
+            call.respond(HttpStatusCode.OK, connectorConfig)
+        }
+    }
 }
 
 private fun buildTasksList(tasksMax: Int) = List(tasksMax) {

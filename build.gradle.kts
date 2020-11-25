@@ -17,6 +17,7 @@ group = "io.fperezp"
 version = "1.0-SNAPSHOT"
 
 val arrowVersion = "0.11.0"
+val hopliteVersion = "1.3.8"
 val ktorVersion = "1.4.0"
 
 repositories {
@@ -44,6 +45,9 @@ dependencies {
     implementation ("io.arrow-kt:arrow-syntax")
     implementation("io.arrow-kt:arrow-fx-coroutines")
     implementation("io.arrow-kt:arrow-fx-kotlinx-coroutines")
+    implementation("com.sksamuel.hoplite:hoplite-core:$hopliteVersion")
+    implementation("com.sksamuel.hoplite:hoplite-arrow:$hopliteVersion")
+    implementation("com.sksamuel.hoplite:hoplite-hocon:$hopliteVersion")
     kapt ("io.arrow-kt:arrow-meta:$arrowVersion")
 }
 

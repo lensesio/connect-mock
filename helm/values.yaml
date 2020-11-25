@@ -37,10 +37,16 @@ securityContext: {}
   # runAsUser: 1000
 
 service:
-  name: connect-mock
   type: ClusterIP
-  externalPort: 8083
-  internalPort: 8083
+  externalPortA: 8083
+  internalPortA: 8083
+  nameA: worker-mock-A
+  externalPortB: 8183
+  internalPortB: 8183
+  nameB: worker-mock-B
+  externalPortC: 8283
+  internalPortC: 8283
+  nameC: worker-mock-C
 
 ingress:
   enabled: false
