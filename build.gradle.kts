@@ -35,12 +35,15 @@ repositories {
 dependencies {
     implementation(platform("io.arrow-kt:arrow-stack:$arrowVersion"))
 
+    compile("ch.qos.logback:logback-classic:1.2.3")
+
     testImplementation(kotlin("test-junit"))
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
-    implementation("io.ktor:ktor-html-builder:$ktorVersion")
     implementation("io.ktor:ktor-jackson:$ktorVersion")
     implementation("io.arrow-kt:arrow-fx")
     implementation ("io.arrow-kt:arrow-syntax")
+    implementation("io.arrow-kt:arrow-fx-coroutines")
+    implementation("io.arrow-kt:arrow-fx-kotlinx-coroutines")
     kapt ("io.arrow-kt:arrow-meta:$arrowVersion")
 }
 
