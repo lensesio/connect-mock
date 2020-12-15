@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 plugins {
     kotlin("jvm") version "1.4.10"
@@ -14,11 +15,11 @@ application {
 }
 
 group = "io.fperezp"
-version = "1.0-SNAPSHOT"
+version = "connect-mock-2"
 
 val arrowVersion = "0.11.0"
 val hopliteVersion = "1.3.8"
-val ktorVersion = "1.4.0"
+val ktorVersion = "1.4.1"
 
 repositories {
     mavenCentral()
@@ -55,8 +56,11 @@ tasks.withType<KotlinCompile>() {
     kotlinOptions.jvmTarget = "1.8"
 }
 
-tasks.withType<Jar> {
-    manifest {
-        attributes(mapOf("Main-Class" to application.mainClassName))
+tasks {
+    named<ShadowJar>("shadowJar") {
+        mergeServiceFiles()
+        manifest {
+            attributes(mapOf("Main-Class" to application.mainClassName))
+        }
     }
 }

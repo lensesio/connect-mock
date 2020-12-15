@@ -40,13 +40,13 @@ service:
   type: ClusterIP
   externalPortA: 8083
   internalPortA: 8083
-  nameA: worker-mock-A
+  nameA: worker-mock-a
   externalPortB: 8183
   internalPortB: 8183
-  nameB: worker-mock-B
+  nameB: worker-mock-b
   externalPortC: 8283
   internalPortC: 8283
-  nameC: worker-mock-C
+  nameC: worker-mock-c
 
 ingress:
   enabled: false
