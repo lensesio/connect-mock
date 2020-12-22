@@ -8,6 +8,7 @@ In addition, it currently exposes 3 different ports that emulates a Connect clus
 The first goal os this project is to be able to test applications that needs to interact with Kafka Connect. Having this mocked service will allow those apps to test scenarios handling several docens of connectors.
 After this first iteration, the idea is start adding some random failures on the artifitially deployed connectors and workers, so we can emulate disaster scenarios for apps speaking to Connect.
 
+## Usage
 
 ### Docker
 There is also a Dockerfile that will allow you to build and run the application
