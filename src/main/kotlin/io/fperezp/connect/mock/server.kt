@@ -95,6 +95,8 @@ fun Application.main() {
     install(ForwardedHeaderSupport)
 
     routing {
+        trace { application.log.trace(it.buildText()) }
+
         route("/") {
             get {
                 call.respond(
@@ -170,91 +172,6 @@ fun Application.main() {
                 }
             }
         }
-
-
-        get("/http:/localhost:8083/") {
-            call.respond(
-                HttpStatusCode.OK,
-                Info("2.5.1-L0", "0efa8fb0f4c73d92", "Sr6uNBjPRN-AH8B10EtF2A")
-            )
-        }
-
-        get("/http:/localhost:8083/connector-plugins") {
-            call.respond(
-                HttpStatusCode.OK,
-                listOf(
-                    Plugin("io.lenses.runner.connect.ProcessorConnector", "sink", "mock"),
-                    Plugin("com.landoop.connect.SQL", "sink", "mock")
-                )
-            )
-        }
-
-        route("/http:/localhost:8083/connectors") {
-
-            post {
-                val request = call.receive<ConnectorCreateRequest>()
-                connectors.update { (it + (request.name to request.config)) }
-                val tasksMax: Int = request.config["tasks.max"]?.toInt() ?: 0
-                call.respond(
-                    HttpStatusCode.Created,
-                    ConnectorResponse(request.name, request.config, buildTasksList(request.name, tasksMax))
-                )
-            }
-
-            get {
-                call.respond(
-                    HttpStatusCode.OK,
-                    connectors.get().keys
-                )
-            }
-
-            route("{connectorName}") {
-
-                get {
-                    val connectorName: String = call.parameters.getOrFail("connectorName")
-                    val config = connectors.get()[connectorName]
-                        ?: throw NotFoundException("Connector [$connectorName] not found")
-                    val tasksMax = config["tasks.max"]?.toInt() ?: 0
-
-
-                    call.respond(
-                        HttpStatusCode.OK,
-                        ConnectorResponse(connectorName, config, buildTasksList(connectorName, tasksMax))
-                    )
-                }
-
-                get("status") {
-                    val connectorName = call.parameters.getOrFail("connectorName")
-                    val tasksMax: Int = connectors.get()[connectorName]?.get("tasks.max")?.toInt() ?: 0
-                    call.respond(
-                        HttpStatusCode.OK,
-                        ConnectorStatusResponse(connectorName, buildTasksDetailsList(tasksMax))
-                    )
-                }
-
-
-                route("config") {
-                    get {
-                        val connectorName = call.parameters.getOrFail("connectorName")
-                        val connectorConfig: Map<String, String> = connectors.get()[connectorName] ?: emptyMap()
-
-                        call.respond(HttpStatusCode.OK, connectorConfig)
-                    }
-
-                    put {
-                        val request = call.receive<ConnectorCreateRequest>()
-                        connectors.update { (it + (request.name to request.config)) }
-                        val connectorName = call.parameters.getOrFail("connectorName")
-                        val tasksMax: Int = request.config["tasks.max"]?.toInt() ?: 0
-
-                        call.respond(
-                            HttpStatusCode.OK,
-                            ConnectorResponse(request.name, request.config, buildTasksList(connectorName, tasksMax))
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -269,15 +186,15 @@ private fun buildTasksList(connectorName: String, tasksMax: Int) = List(tasksMax
 private fun Application.configureErrorInterceptor() {
     install(StatusPages) {
         exception<NotFoundException> { cause ->
-            call.respond(HttpStatusCode.NotFound, "------Not found: ${cause.message}")
+            call.respond(HttpStatusCode.NotFound, "Not found: ${cause.message}")
             throw cause
         }
         exception<MissingRequestParameterException> { cause ->
-            call.respond(HttpStatusCode.NotFound, "------Not found: ${cause.message}")
+            call.respond(HttpStatusCode.NotFound, "Not found: ${cause.message}")
             throw cause
         }
         exception<Throwable> { cause ->
-            call.respond(HttpStatusCode.InternalServerError, "Internal Server Error")
+            call.respond(HttpStatusCode.InternalServerError, "Internal Server Error: ${cause.message}")
             throw cause
         }
     }

@@ -15,7 +15,7 @@ application {
 }
 
 group = "io.fperezp"
-version = "connect-mock-2"
+version = "0.5.2"
 
 val arrowVersion = "0.11.0"
 val hopliteVersion = "1.3.8"
