@@ -27,6 +27,8 @@ spec:
       serviceAccountName: {{ include "connect-mock.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      hostname: {{ include "connect-mock.fullname" . }}
+      subdomain: lenses
       containers:
         - name: {{ .Chart.Name }}
           securityContext:

@@ -15,7 +15,7 @@ application {
 }
 
 group = "io.fperezp"
-version = "0.5.2"
+version = "0.5.5"
 
 val arrowVersion = "0.11.0"
 val hopliteVersion = "1.3.8"
@@ -50,6 +50,7 @@ dependencies {
     implementation("com.sksamuel.hoplite:hoplite-arrow:$hopliteVersion")
     implementation("com.sksamuel.hoplite:hoplite-hocon:$hopliteVersion")
     kapt ("io.arrow-kt:arrow-meta:$arrowVersion")
+    implementation(kotlin("stdlib-jdk8"))
 }
 
 tasks.withType<KotlinCompile>() {
@@ -63,4 +64,12 @@ tasks {
             attributes(mapOf("Main-Class" to application.mainClassName))
         }
     }
+}
+val compileKotlin: KotlinCompile by tasks
+compileKotlin.kotlinOptions {
+    jvmTarget = "1.8"
+}
+val compileTestKotlin: KotlinCompile by tasks
+compileTestKotlin.kotlinOptions {
+    jvmTarget = "1.8"
 }
