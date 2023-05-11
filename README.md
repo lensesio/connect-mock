@@ -26,3 +26,24 @@ helm install -n fran-test mock-connect ./helm
 ```
 
 Friendly reminder, if you want to deploy using Helm you'll need to push the docker image to a docker registry accessible from the Kubernetes cluster you want to deploy the mock-connect app into.
+
+
+### Example
+
+To create a new connector, you can use the following command:
+
+```
+curl -X POST -H "Content-Type: application/json" -d '{"name":"s3sink","config":{"connector.class":"io.lenses.connect.aws.s3.S3SinkConnector","tasks.max":"1","topics":"your-topic","s3.bucket.name":"your-bucket-name","s3.region":"your-s3-region","format.class":"io.lenses.connect.aws.s3.format.parquet.ParquetFormat","flush.size":"1000","name":"s3-sink"}}' http://localhost:18083/connectors | jq
+```
+
+To set the status of a connector, you can use the following command:
+
+```
+curl -X PUT -H "Content-Type: application/json" -d '[{"id":0,"state":"RUNNING","worker_id":"worker1","trace":"trace"},{"id":1,"state":"FAILED","worker_id":"worker1","trace":"trace"}]' http://localhost:18083/connectors/s3sink/status | jq
+```
+
+To get the status of a connector, you can use the following command:
+
+```
+curl -X GET http://localhost:18083/connectors/s3sink/status  | jq
+```

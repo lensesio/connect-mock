@@ -19,7 +19,7 @@ version = "0.5.5"
 
 val arrowVersion = "0.11.0"
 val hopliteVersion = "1.3.8"
-val ktorVersion = "1.4.1"
+val ktorVersion = "1.6.0"
 
 repositories {
     mavenCentral()

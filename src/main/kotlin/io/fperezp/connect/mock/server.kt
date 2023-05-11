@@ -1,6 +1,7 @@
 package io.fperezp.connect.mock
 
 import arrow.fx.coroutines.Atomic
+import com.fasterxml.jackson.databind.SerializationFeature
 import io.ktor.application.*
 import io.ktor.features.*
 import io.ktor.http.*
@@ -54,7 +55,7 @@ enum class ConnectStatus {
 data class Config(val workerAPort: Int, val workerBPort: Int, val workerCPort: Int)
 
 fun main() {
-    val config = Config(8083, 8183, 8283)
+    val config = Config(18083, 18183, 18283)
 
 //    val config = ConfigLoader().loadConfig<Config>("application.conf").getUnsafe()
 
@@ -81,10 +82,12 @@ fun main() {
     embeddedServer(Netty, env).start(true)
 }
 
+data class ConnectorConfigAndStatus(val config: Map<String, String>, val status: List<TaskStatus>)
+
 fun Application.main() {
 
     val clusterId: String = UUID.randomUUID().toString()
-    val connectors = Atomic.unsafe(emptyMap<String, Map<String, String>>())
+    val connectors = Atomic.unsafe(emptyMap<String, ConnectorConfigAndStatus>())
 
     configureJsonSerialization()
     configureErrorInterceptor()
@@ -95,7 +98,7 @@ fun Application.main() {
     install(ForwardedHeaderSupport)
 
     routing {
-        trace { application.log.trace(it.buildText()) }
+        //trace { application.log.trace(it.buildText()) }
 
         route("/") {
             get {
@@ -119,17 +122,28 @@ fun Application.main() {
             }
         }
 
+        // give the curl command to populate the connector
+        // curl -X POST -H "Content-Type: application/json" -d '{"name":"connector1","config":{"connector.class":"io.lenses.runner.connect.ProcessorConnector","tasks.max":"1","topics":"topic1","connector.id":"connector1","name":"connector1","connect.sql":"select * from topic1","connect.sql.schema":"{\"type\":\"record\",\"name\":\"myrecord\",\"fields\":[{\"name\":\"f1\",\"type\":\"string\"},{\"name\":\"f2\",\"type\":\"int\"}]}"}}' http://localhost:8083/connectors
         route("/connectors") {
             post {
                 val request = call.receive<ConnectorCreateRequest>()
-                connectors.update { (it + (request.name to request.config)) }
                 val tasksMax: Int = request.config["tasks.max"]?.toInt() ?: 0
+
+                connectors.update {
+                    (it + (request.name to ConnectorConfigAndStatus(
+                        request.config,
+                        buildTasksDetailsList(tasksMax)
+                    )))
+                }
+
                 call.respond(
                     HttpStatusCode.Created,
                     ConnectorResponse(request.name, request.config, buildTasksList(request.name, tasksMax))
                 )
             }
 
+            // give the curl command to populate the connector
+            // curl -X GET http://localhost:8083/connectors | jq
             get {
                 val connectorNames = connectors.get().keys
                 call.respond(
@@ -139,23 +153,62 @@ fun Application.main() {
             }
 
             route("{connectorName}") {
-                get("status") {
-                    val connectorName = call.parameters.getOrFail("connectorName")
-                    val tasksMax: Int = connectors.get()[connectorName]?.get("tasks.max")?.toInt() ?: 0
-                    call.respond(
-                        HttpStatusCode.OK,
-                        ConnectorStatusResponse(connectorName, buildTasksDetailsList(tasksMax))
-                    )
-                }
+                route("status") {
+                    put {
+                        val connectorName = call.parameters.getOrFail("connectorName")
+                        val request = call.receive<Array<TaskStatus>>()
+                        val state = connectors.updateAndGet {
+                            //only update if the connector exists
+                            if (it.containsKey(connectorName)) {
+                                val config = it[connectorName]?.config ?: emptyMap()
+                                val newConfig = config + ("tasks.max" to request.size.toString())
+                                it + (connectorName to ConnectorConfigAndStatus(newConfig, request.toList()))
 
+                            } else {
+                                it
+                            }
+                        }
+                        val response = ConnectorStatusResponse(
+                            connectorName,
+                            state[connectorName]?.status?.toList() ?: emptyList()
+                        )
+
+                        call.respond(HttpStatusCode.OK, response)
+                    }
+
+                    get {
+                        val connectorName = call.parameters.getOrFail("connectorName")
+                        val state = connectors.get()
+                        if (state.containsKey(connectorName)) {
+                            val response =
+                                ConnectorStatusResponse(connectorName, state[connectorName]?.status ?: emptyList())
+                            call.respond(
+                                HttpStatusCode.OK,
+                                response
+                            )
+                        } else {
+                            call.respond(
+                                HttpStatusCode.NotFound,
+                                ConnectorError(clusterId, 404, ErrorMessage("Connector $connectorName not found"))
+                            )
+                        }
+                    }
+
+
+                }
 
                 route("config") {
                     put {
                         val request = call.receive<ConnectorCreateRequest>()
-                        connectors.update { (it + (request.name to request.config)) }
+
                         val tasksMax: Int = request.config["tasks.max"]?.toInt() ?: 0
                         val connectorName = call.parameters.getOrFail("connectorName")
-
+                        connectors.update {
+                            (it + (request.name to ConnectorConfigAndStatus(
+                                request.config,
+                                buildTasksDetailsList(tasksMax)
+                            )))
+                        }
 
                         call.respond(
                             HttpStatusCode.OK,
@@ -165,7 +218,7 @@ fun Application.main() {
 
                     get {
                         val connectorName = call.parameters.getOrFail("connectorName")
-                        val connectorConfig: Map<String, String> = connectors.get()[connectorName] ?: emptyMap()
+                        val connectorConfig: Map<String, String> = connectors.get()[connectorName]?.config ?: emptyMap()
 
                         call.respond(HttpStatusCode.OK, connectorConfig)
                     }
@@ -176,7 +229,7 @@ fun Application.main() {
 }
 
 private fun buildTasksDetailsList(tasksMax: Int) = List(tasksMax) {
-    TaskStatus(it, ConnectStatus.RUNNING, "127.0.0.1")
+    TaskStatus(it, ConnectStatus.FAILED, "127.0.0.1")
 }
 
 private fun buildTasksList(connectorName: String, tasksMax: Int) = List(tasksMax) {
@@ -202,6 +255,10 @@ private fun Application.configureErrorInterceptor() {
 
 private fun Application.configureJsonSerialization() {
     install(ContentNegotiation) {
-        register(ContentType.Application.Json, JacksonConverter())
+        //register(ContentType.Application.Json, JacksonConverter())
+        jackson {
+            enable(SerializationFeature.INDENT_OUTPUT)
+            disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+        }
     }
 }
