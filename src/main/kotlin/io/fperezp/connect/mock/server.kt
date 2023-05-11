@@ -23,7 +23,14 @@ data class ConnectorResponse(
     val tasks: List<ConnectorTask>,
 )
 
-data class ConnectorStatusResponse(val name: String, val tasks: List<TaskStatus>)
+data class ConnectorInstanceStatus(val state: ConnectStatus, val worker_id: String)
+data class ConnectorStatusResponse(
+    val name: String, val connector: ConnectorInstanceStatus, val tasks: List<TaskStatus>
+)
+
+data class ConnectorInfo(val name: String, val config: Map<String, String>, val tasks: List<ConnectorTask>)
+data class ConnectorTasksAndInfo(val status: ConnectorStatusResponse, val info: ConnectorInfo)
+data class ConnectorsTasksAndInfo(val connectors: Map<String, ConnectorTasksAndInfo>)
 
 // State to be moved to an Enum when working on https://landoop.atlassian.net/browse/FLOWS-1365
 // This has been created now for testing Deployments, but it's not a final version and will be reworked
@@ -49,13 +56,13 @@ data class ConnectorPlugin(val className: String, val pluginType: String, val ve
 
 
 enum class ConnectStatus {
-    RUNNING, PAUSED, FAILED, UNASSIGNED
+    RUNNING, PAUSED, FAILED, UNASSIGNED, RESTARTING
 }
 
 data class Config(val workerAPort: Int, val workerBPort: Int, val workerCPort: Int)
 
 fun main() {
-    val config = Config(18083, 18183, 18283)
+    val config = Config(8083, 8183, 8283)
 
 //    val config = ConfigLoader().loadConfig<Config>("application.conf").getUnsafe()
 
@@ -103,8 +110,7 @@ fun Application.main() {
         route("/") {
             get {
                 call.respond(
-                    HttpStatusCode.OK,
-                    Info("2.5.1-L0", "0efa8fb0f4c73d92", "Sr6uNBjPRN-AH8B10EtF2A")
+                    HttpStatusCode.OK, Info("2.5.1-L0", "0efa8fb0f4c73d92", "Sr6uNBjPRN-AH8B10EtF2A")
                 )
             }
         }
@@ -113,8 +119,7 @@ fun Application.main() {
         route("/connector-plugins") {
             get {
                 call.respond(
-                    HttpStatusCode.OK,
-                    listOf(
+                    HttpStatusCode.OK, listOf(
                         Plugin("io.lenses.runner.connect.ProcessorConnector", "sink", "mock"),
                         Plugin("com.landoop.connect.SQL", "sink", "mock")
                     )
@@ -131,8 +136,7 @@ fun Application.main() {
 
                 connectors.update {
                     (it + (request.name to ConnectorConfigAndStatus(
-                        request.config,
-                        buildTasksDetailsList(tasksMax)
+                        request.config, buildTasksDetailsList(tasksMax)
                     )))
                 }
 
@@ -145,14 +149,41 @@ fun Application.main() {
             // give the curl command to populate the connector
             // curl -X GET http://localhost:8083/connectors | jq
             get {
-                val connectorNames = connectors.get().keys
-                call.respond(
-                    HttpStatusCode.OK,
-                    connectorNames
-                )
+                val state = connectors.get()
+                //check if query param expand is present and if not return only the connector names otherwise return the full connector info
+                if (call.request.queryParameters["expand"] == null) {
+                    call.respond(
+                        HttpStatusCode.OK, state.keys
+                    )
+                } else {
+                    val response = ConnectorsTasksAndInfo(state.mapValues {
+                        ConnectorTasksAndInfo(
+                            ConnectorStatusResponse(
+                                it.key, ConnectorInstanceStatus(ConnectStatus.RUNNING, "127.0.0.1"), it.value.status
+                            ), ConnectorInfo(it.key,
+                                it.value.config,
+                                it.value.status.map { t -> ConnectorTask(it.key, t.id) })
+                        )
+                    })
+
+                    call.respond(
+                        HttpStatusCode.OK, response
+                    )
+                }
             }
 
             route("{connectorName}") {
+                route("restart") {
+                    post {
+                        val connectorName = call.parameters.getOrFail("connectorName")
+                        val state = connectors.get()[connectorName]?.status ?: emptyList()
+                        call.respond(
+                            HttpStatusCode.OK, ConnectorStatusResponse(connectorName,
+                                ConnectorInstanceStatus(ConnectStatus.RESTARTING, "127.0.0.1"),
+                                state.map { it.copy(state = ConnectStatus.RESTARTING) })
+                        )
+                    }
+                }
                 route("status") {
                     put {
                         val connectorName = call.parameters.getOrFail("connectorName")
@@ -170,6 +201,7 @@ fun Application.main() {
                         }
                         val response = ConnectorStatusResponse(
                             connectorName,
+                            ConnectorInstanceStatus(ConnectStatus.RUNNING, "127.0.0.1"),
                             state[connectorName]?.status?.toList() ?: emptyList()
                         )
 
@@ -180,11 +212,13 @@ fun Application.main() {
                         val connectorName = call.parameters.getOrFail("connectorName")
                         val state = connectors.get()
                         if (state.containsKey(connectorName)) {
-                            val response =
-                                ConnectorStatusResponse(connectorName, state[connectorName]?.status ?: emptyList())
+                            val response = ConnectorStatusResponse(
+                                connectorName,
+                                ConnectorInstanceStatus(ConnectStatus.RUNNING, "127.0.0.1"),
+                                state[connectorName]?.status ?: emptyList()
+                            )
                             call.respond(
-                                HttpStatusCode.OK,
-                                response
+                                HttpStatusCode.OK, response
                             )
                         } else {
                             call.respond(
@@ -205,8 +239,7 @@ fun Application.main() {
                         val connectorName = call.parameters.getOrFail("connectorName")
                         connectors.update {
                             (it + (request.name to ConnectorConfigAndStatus(
-                                request.config,
-                                buildTasksDetailsList(tasksMax)
+                                request.config, buildTasksDetailsList(tasksMax)
                             )))
                         }
 
