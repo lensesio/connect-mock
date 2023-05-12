@@ -105,7 +105,6 @@ fun Application.main() {
     install(ForwardedHeaderSupport)
 
     routing {
-        //trace { application.log.trace(it.buildText()) }
 
         route("/") {
             get {
@@ -287,8 +286,7 @@ private fun Application.configureErrorInterceptor() {
 }
 
 private fun Application.configureJsonSerialization() {
-    install(ContentNegotiation) {
-        //register(ContentType.Application.Json, JacksonConverter())
+    install(ContentNegotiation) { 
         jackson {
             enable(SerializationFeature.INDENT_OUTPUT)
             disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
