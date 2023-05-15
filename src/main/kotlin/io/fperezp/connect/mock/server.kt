@@ -173,6 +173,16 @@ fun Application.main() {
             }
 
             route("{connectorName}") {
+                get {
+                    val connectorName = call.parameters.getOrFail("connectorName")
+                    val state = connectors.get()[connectorName]?.status ?: emptyList()
+                    val response = ConnectorInfo(connectorName,
+                        connectors.get()[connectorName]?.config ?: emptyMap(),
+                        state.map { ConnectorTask(connectorName, it.id) })
+
+                    call.respond(HttpStatusCode.OK, response)
+                }
+
                 route("restart") {
                     post {
                         val connectorName = call.parameters.getOrFail("connectorName")
