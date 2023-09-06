@@ -39,7 +39,15 @@ curl -X POST -H "Content-Type: application/json" -d '{"name":"s3sink","config":{
 To set the status of a connector, you can use the following command:
 
 ```
-curl -X PUT -H "Content-Type: application/json" -d '[{"id":0,"state":"RUNNING","worker_id":"worker1","trace":"trace"},{"id":1,"state":"FAILED","worker_id":"worker1","trace":"trace"}]' http://localhost:18083/connectors/s3sink/status | jq
+curl -X PUT -H "Content-Type: application/json" -d '[{"id":0,"state":"RUNNING","worker_id":"worker1","trace":"trace"},{"id":1,"state":"RUNNING","worker_id":"worker1","trace":"trace"}]' http://localhost:18083/connectors/s3sink/status | jq
+
+
+curl -X PUT -H "Content-Type: application/json" -d '[{"id":0,"state":"FAILED","worker_id":"worker1","trace":"trace"},{"id":1,"state":"RUNNING","worker_id":"worker1","trace":"trace"}]' http://localhost:18083/connectors/s3sink/status | jq
+
+
+curl -X PUT -H "Content-Type: application/json" -d '[{"id":0,"state":"FAILED","worker_id":"worker1","trace":"trace"},{"id":1,"state":"RUNNING","worker_id":"worker1","trace":"trace"}]' http://localhost:18083/connectors/s3sink1/status | jq
+
+curl -X PUT -H "Content-Type: application/json" -d '[{"id":0,"state":"RUNNING","worker_id":"worker1","trace":"trace"},{"id":1,"state":"RUNNING","worker_id":"worker1","trace":"trace"}]' http://localhost:18083/connectors/s3sink1/status | jq
 ```
 
 To get the status of a connector, you can use the following command:
