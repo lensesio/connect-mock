@@ -44,7 +44,17 @@ data class TaskStatus(
 
 data class Info(val version: String, val commit: String, val kafka_cluster_id: String)
 
-data class Plugin(val `class`: String, val `type`: String, val version: String)
+data class Plugin(
+    val `class`: String,
+    val `type`: String,
+    val version: String,
+    val description: String = "lorem ipsum",
+    val docs: String = "https://docs.lenses.io/connectors/sink/processor.html",
+    val icon: String = "s3.png",
+    val name: String = "S3 Sink",
+    val uiEnabled: Boolean = true,
+    val author:String = "m"
+)
 
 data class InvalidConnectResponse(val message: String, val code: Int, val error: Throwable? = null)
 
@@ -62,7 +72,7 @@ enum class ConnectStatus {
 data class Config(val workerAPort: Int, val workerBPort: Int, val workerCPort: Int)
 
 fun main() {
-    val config = Config(8083, 8183, 8283)
+    val config = Config(18083, 18183, 18283)
 
 //    val config = ConfigLoader().loadConfig<Config>("application.conf").getUnsafe()
 
@@ -103,6 +113,10 @@ fun Application.main() {
     install(AutoHeadResponse)
     install(XForwardedHeaderSupport)
     install(ForwardedHeaderSupport)
+    install(Compression) {
+        gzip()
+        deflate()
+    }
 
     routing {
         //trace { application.log.trace(it.buildText()) }
@@ -120,8 +134,7 @@ fun Application.main() {
             get {
                 call.respond(
                     HttpStatusCode.OK, listOf(
-                        Plugin("io.lenses.runner.connect.ProcessorConnector", "sink", "mock"),
-                        Plugin("com.landoop.connect.SQL", "sink", "mock")
+                        Plugin("io.lenses.connect.aws.s3.S3SinkConnector", "sink", "5.0.0"),
                     )
                 )
             }
@@ -156,7 +169,7 @@ fun Application.main() {
                         HttpStatusCode.OK, state.keys
                     )
                 } else {
-                    val response = ConnectorsTasksAndInfo(state.mapValues {
+                    val response = state.mapValues {
                         ConnectorTasksAndInfo(
                             ConnectorStatusResponse(
                                 it.key, ConnectorInstanceStatus(ConnectStatus.RUNNING, "127.0.0.1"), it.value.status
@@ -164,8 +177,7 @@ fun Application.main() {
                                 it.value.config,
                                 it.value.status.map { t -> ConnectorTask(it.key, t.id) })
                         )
-                    })
-
+                    }
                     call.respond(
                         HttpStatusCode.OK, response
                     )
